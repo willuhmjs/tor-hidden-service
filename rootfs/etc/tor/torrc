@@ -1,0 +1,20 @@
+# Default config. Mount your own over /etc/tor/torrc to change anything.
+#
+# The hidden service directory is expected to be a mounted volume that already holds
+# hs_ed25519_secret_key / hs_ed25519_public_key. Tor rewrites only `hostname` in there.
+
+DataDirectory /var/lib/tor/data
+StatePath /var/lib/tor/data/state
+CacheDirectory /var/lib/tor/data/cache
+
+Log notice stdout
+
+# Loopback SOCKS proxy: lets a sidecar (and `kubectl exec`) fetch the .onion through
+# Tor itself, which is how this deployment gets verified end to end. Nothing outside the
+# pod can reach it.
+SocksPort 127.0.0.1:9050
+SocksPolicy reject *
+
+HiddenServiceDir /var/lib/tor/hidden_service
+HiddenServiceVersion 3
+HiddenServicePort 80 127.0.0.1:8080
