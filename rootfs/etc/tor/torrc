@@ -1,17 +1,21 @@
 # Default config. Mount your own over /etc/tor/torrc to change anything.
 #
-# The hidden service directory is expected to be a mounted volume that already holds
-# hs_ed25519_secret_key / hs_ed25519_public_key. Tor rewrites only `hostname` in there.
+# The hidden service directory is expected to be a mounted volume that either is empty (Tor
+# mints a key and prints the new address) or already holds hs_ed25519_secret_key /
+# hs_ed25519_public_key (the address you already own). Tor only ever rewrites `hostname`.
+#
+# Only DataDirectory is set on purpose: the state file and the cache live underneath it by
+# default. Tor has renamed these options between releases (this config died on startup for a
+# release over a "StatePath", which 0.4.9 does not know), so the fewer option names spelled
+# out here, the less this image breaks when the base bumps.
 
 DataDirectory /var/lib/tor/data
-StatePath /var/lib/tor/data/state
-CacheDirectory /var/lib/tor/data/cache
 
 Log notice stdout
 
-# Loopback SOCKS proxy: lets a sidecar (and `kubectl exec`) fetch the .onion through
-# Tor itself, which is how this deployment gets verified end to end. Nothing outside the
-# pod can reach it.
+# Loopback SOCKS proxy: lets a sidecar (and `kubectl exec`) fetch the .onion through Tor
+# itself, which is how a deployment gets verified end to end. Nothing outside the pod can
+# reach it, and SocksPolicy rejects everything anyway.
 SocksPort 127.0.0.1:9050
 SocksPolicy reject *
 
