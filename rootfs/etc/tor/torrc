@@ -4,20 +4,25 @@
 # mints a key and prints the new address) or already holds hs_ed25519_secret_key /
 # hs_ed25519_public_key (the address you already own). Tor only ever rewrites `hostname`.
 #
-# Only DataDirectory is set on purpose: the state file and the cache live underneath it by
-# default. Tor has renamed these options between releases (this config died on startup for a
-# release over a "StatePath", which 0.4.9 does not know), so the fewer option names spelled
-# out here, the less this image breaks when the base bumps.
+# Only DataDirectory is named for paths: Tor renames these options between releases (this
+# config died on startup over a "StatePath", which 0.4.9 does not know), so the fewer option
+# names spelled out here, the less this image breaks when the base bumps.
 
 DataDirectory /var/lib/tor/data
 
 Log notice stdout
 
+# A container that does not know its cgroup limit is an OOM kill waiting to happen: tor sizes
+# its queue from total system memory, which inside a pod means the node's memory (measured
+# 5951 MB on a 4 GB-class node against a 384 Mi container limit). Past this threshold tor
+# sheds connections; without it the kernel kills tor and the onion goes down.
+MaxMemInQueues 64 MB
+
 # Loopback SOCKS proxy: lets a sidecar (and `kubectl exec`) fetch the .onion through Tor
 # itself, which is how a deployment gets verified end to end. Nothing outside the pod can
-# reach it, and SocksPolicy rejects everything anyway.
+# reach it. No SocksPolicy: 0.4.9 cannot express ".onion destinations" in policy syntax
+# ("Malformed IP \"*.onion\""), and a blanket "reject *" is not the way to restrict this.
 SocksPort 127.0.0.1:9050
-SocksPolicy reject *
 
 HiddenServiceDir /var/lib/tor/hidden_service
 HiddenServiceVersion 3

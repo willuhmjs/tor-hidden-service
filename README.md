@@ -46,10 +46,42 @@ existing onion key directory off the NAS SMB share as `HiddenServiceDir`, so the
 stable across pod restarts and the private key lives on the (Longhorn-encrypted, backed-up)
 share rather than in git or etcd.
 
+## Security notes
+
+What this image does, and what was checked against the shipped `0.4.9.14` binary rather than
+copied from a hardening checklist:
+
+- **No inbound listener.** With no `ORPort` the process only dials out, so a hidden service
+  needs no port forward and a firewall egress-only policy is enough. (Tor itself warns if you
+  configure `ORPort` *and* a hidden service in one process - do not do that; relay and service
+  belong in separate processes.)
+- **Runs as uid 100 with nothing setuid, no port under 1024, no chown.** Safe to deploy with
+  `readOnlyRootFilesystem: true`, `capabilities.drop: [ALL]`,
+  `allowPrivilegeEscalation: false` and `seccompProfile: RuntimeDefault`, which is how the
+  homelab runs it.
+- **`Sandbox 1` does not work in a container - do not add it.** It parses, then tor exits at
+  startup with `install_syscall_filter(): Bug: (Sandbox) failed to load: -125 (Operation
+  canceled)`: a process already inside a seccomp filter cannot install its own. Take the
+  runtime's profile instead. Verified with Docker's default profile, which is the same family
+  as `RuntimeDefault` in containerd.
+- **The hidden service directory must be 0700 and owned by tor's uid** or tor refuses to start
+  (`Permissions on directory ... are too permissive`). On CIFS/NFS you control this with mount
+  options (`uid=`, `dir_mode=`), and there is no `HiddenServiceIgnoreOwner` /
+  `HiddenServiceIgnoreFSPermissions` escape hatch in 0.4.9 - both are unknown options.
+- **`MaxMemInQueues` is set in the default config**, because tor sizes it from total system
+  memory and in a pod that means the node's memory, not the container limit.
+- **`SocksPort` stays on loopback.** It exists so a deployment can fetch its own onion and
+  prove the descriptor published. It is not reachable outside the pod, and do not try to
+  restrict it with `SocksPolicy` - 0.4.9 rejects `accept *.onion` as a malformed address
+  pattern, and `reject *` blocks the very fetch the port is there for.
+- **Base pinned by tag *and* digest, packages not pinned** - see the Dockerfile header for why
+  that is the safer combination here.
+
 ## Refreshing Tor
 
 ```sh
-docker pull alpine                    # find the newest patch release
-# bump FROM alpine:<new> in the Dockerfile
-git commit -am "alpine 3.24.x" && git push   # CI rebuilds and pushes :latest
+docker buildx imagetools inspect alpine:3.24 --format '{{json .Manifest}}'   # newest digest
+# bump FROM alpine:<new>@sha256:<digest> in the Dockerfile (or merge the Dependabot PR)
+git commit -am "alpine 3.24.x" && git push && git tag 1.0.x && git push --tags
 ```
+CI pushes `:<semver>`, `:latest` and `:sha-<shortsha>`. The homelab pins the semver tag.

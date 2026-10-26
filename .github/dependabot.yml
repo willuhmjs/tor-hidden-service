@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Bumps the pinned alpine base tag+digest in the Dockerfile. This is the security-update
+  # path for tor/openssl/libevent, so it is worth a weekly check.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
