@@ -3,7 +3,10 @@ name: build
 on:
   push:
     branches: [main]
-    tags: ["v*"]
+    # Bare semver (1.0.1), not v-prefixed: metadata-action's {{version}} output strips the v,
+    # so tagging v1.0.1 here would publish an image tag nobody references. A "v*" filter alone
+    # matched nothing and silently skipped the build.
+    tags: ["*", "v*"]
   workflow_dispatch:
 
 permissions:
