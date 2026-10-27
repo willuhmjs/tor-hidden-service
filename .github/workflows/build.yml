@@ -39,7 +39,7 @@ jobs:
       # Single-arch on purpose: the homelab node is amd64 and a cross-arch build here would
       # only exercise Tor under emulation. Add linux/arm64 if a node ever needs it.
       - id: build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64
