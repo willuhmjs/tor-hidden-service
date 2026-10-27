@@ -38,12 +38,25 @@ jobs:
 
       # Single-arch on purpose: the homelab node is amd64 and a cross-arch build here would
       # only exercise Tor under emulation. Add linux/arm64 if a node ever needs it.
-      - uses: docker/build-push-action@v6
+      - id: build
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Attestations ride along with the image so consumers can verify what built it.
+          provenance: mode=max
+          sbom: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Fails the run on a fixable HIGH/CRITICAL in the shipped image. There is no OS layer to
+      # speak of (scratch), so a hit means tor or one of its three libraries needs a rebuild.
+      - uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/willuhmjs/tor-hidden-service@${{ steps.build.outputs.digest }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"

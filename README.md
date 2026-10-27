@@ -5,6 +5,9 @@ because every off-the-shelf "tor hidden service" image on Docker Hub is years st
 (`zeta0/alpine-tor` 2017, `goldy/tor-hidden-service` 2023) and an onion service is exactly
 the kind of internet-facing, key-holding workload that should not run an abandoned Tor.
 
+The image is `FROM scratch`: only the tor binary, its three shared libraries, geoip tables and
+a `tor` passwd entry. No shell, no package manager, no curl.
+
 Everything here is a `Dockerfile` and four lines of `torrc`. The patch story is Alpine's:
 `apk add tor` pulls Alpine's signed, security-maintained build, so **rebuilding the image is
 the security update** — there is no vendored Tor to maintain.
@@ -27,8 +30,12 @@ docker run --rm -d --name onion \
   -v "$PWD/hs-state:/var/lib/tor/hidden_service" \
   ghcr.io/willuhmjs/tor-hidden-service:latest
 
-# then, from inside the same container (loopback SOCKS is on purpose, see below):
-docker exec onion curl -sS --socks5-hostname 127.0.0.1:9050 http://<address>.onion/
+# the image is FROM scratch (no shell, no curl). Wait for "Bootstrapped 100%", then read the
+# address from the mounted directory:
+docker logs onion | grep Bootstrapped
+cat hs-state/hostname
+# end-to-end check: run a curl container in the same network namespace
+docker run --rm --network container:onion curlimages/curl -sS --socks5-hostname 127.0.0.1:9050 http://<address>.onion/
 ```
 
 `docker run` applies none of the hardening described under *Security notes* on its own. For a
