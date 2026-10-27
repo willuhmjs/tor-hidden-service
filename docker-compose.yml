@@ -1,0 +1,56 @@
+# Hardened reference deployment: Tor onion service in front of an unprivileged nginx.
+#
+# `docker run` applies none of these restrictions by default, so they live here. They are the
+# docker equivalent of the pod securityContext described in the README.
+#
+#   docker compose up -d
+#   docker compose logs tor | grep -i bootstrapped
+#   docker compose exec tor cat /var/lib/tor/hidden_service/hostname
+#
+# The onion identity (hs_ed25519_secret_key) lives in the `hs` named volume. Back it up and
+# never publish it: whoever holds it IS your onion address.
+
+services:
+  tor:
+    image: ghcr.io/willuhmjs/tor-hidden-service:latest
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 384m
+    # Named volumes (not bind mounts) so Docker seeds them with the image's 0700 tor-owned
+    # directories; a bind mount needs `chown 100:101 && chmod 700` by hand or tor refuses to start.
+    volumes:
+      - hs:/var/lib/tor/hidden_service
+      - data:/var/lib/tor/data
+    networks: [egress]
+
+  # Shares tor's network namespace, so it is reachable only as 127.0.0.1:8080 from tor and has
+  # no published port and no network of its own. Swap in your real site here.
+  web:
+    image: nginxinc/nginx-unprivileged:alpine
+    restart: unless-stopped
+    network_mode: service:tor
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 128m
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+    depends_on: [tor]
+
+networks:
+  # Dedicated bridge: tor can dial out but shares nothing with other compose projects.
+  egress: {}
+
+volumes:
+  hs: {}
+  data: {}

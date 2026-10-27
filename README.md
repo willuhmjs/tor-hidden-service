@@ -31,6 +31,13 @@ docker run --rm -d --name onion \
 docker exec onion curl -sS --socks5-hostname 127.0.0.1:9050 http://<address>.onion/
 ```
 
+`docker run` applies none of the hardening described under *Security notes* on its own. For a
+plain-Docker deployment use the bundled `docker-compose.yml` (read-only rootfs, `cap_drop: ALL`,
+`no-new-privileges`, pid/memory limits, an unprivileged nginx sharing tor's network namespace
+so the backend is only ever `127.0.0.1:8080`). Put your site in `./site` and run
+`docker compose up -d` (it pulls the published image). It uses named volumes so Docker seeds the `0700` tor-owned
+directories; bind mounts must be `chown 100:101` / `chmod 700` by hand.
+
 The default `/etc/tor/torrc` forwards `80` on the onion to `127.0.0.1:8080`, so whatever
 shares the pod/network namespace on port 8080 *is* the site. Mount your own torrc over
 `/etc/tor/torrc` to change that.
