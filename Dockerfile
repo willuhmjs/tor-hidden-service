@@ -9,7 +9,7 @@
 # deliberate act. Dependabot opens the bump PR. apk packages are deliberately NOT
 # version-pinned: a rebuild is supposed to pull the newest patched tor/libevent/openssl, and
 # freezing "tor=0.4.9.14-r0" breaks the build the day Alpine rolls the revision.
-FROM alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS build
+FROM alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS build
 
 RUN apk add --no-cache tor
 
